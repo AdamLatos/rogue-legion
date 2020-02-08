@@ -1,5 +1,4 @@
-use super::{Player, Rect, Viewshed, World};
-use legion::query::{IntoQuery, Read, Write};
+use super::{Rect, World};
 use rltk::{Algorithm2D, BaseMap, Console, Point, RandomNumberGenerator, Rltk, RGB};
 use std::cmp::{max, min};
 
@@ -97,7 +96,7 @@ impl Map {
         const MIN_SIZE: i32 = 6;
         const MAX_SIZE: i32 = 10;
 
-        for i in 0..MAX_ROOMS {
+        for _i in 0..MAX_ROOMS {
             let w = rng.range(MIN_SIZE, MAX_SIZE);
             let h = rng.range(MIN_SIZE, MAX_SIZE);
             let x = rng.roll_dice(1, map.width - w - 1) - 1;

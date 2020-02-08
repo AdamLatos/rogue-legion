@@ -1,5 +1,10 @@
 use rltk::RGB;
 
+#[derive(Debug)]
+pub struct Name {
+    pub name: String,
+}
+
 #[derive(Debug, PartialEq)]
 pub struct Position {
     pub x: i32,
@@ -21,6 +26,9 @@ pub struct Renderable {
 
 #[derive(Debug, PartialEq)]
 pub struct Player {}
+
+#[derive(Debug, PartialEq)]
+pub struct Monster {}
 
 #[derive(Debug, PartialEq)]
 pub struct Viewshed {

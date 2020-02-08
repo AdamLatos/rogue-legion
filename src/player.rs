@@ -1,4 +1,4 @@
-use super::{Player, State, Velocity};
+use super::{Player, RunState, State, Velocity};
 use legion::query::{IntoQuery, Read, Write};
 use legion::world::World;
 use rltk::{Rltk, VirtualKeyCode};
@@ -12,10 +12,10 @@ fn try_move_player(delta_x: i32, delta_y: i32, world: &mut World) {
     }
 }
 
-pub fn player_input(gs: &mut State, ctx: &mut Rltk) {
+pub fn player_input(gs: &mut State, ctx: &mut Rltk) -> RunState {
     // Player movement
     match ctx.key {
-        None => try_move_player(0, 0, &mut gs.world),
+        None => return RunState::Paused,
         Some(key) => match key {
             VirtualKeyCode::Left => try_move_player(-1, 0, &mut gs.world),
             VirtualKeyCode::Numpad4 => try_move_player(-1, 0, &mut gs.world),
@@ -33,4 +33,5 @@ pub fn player_input(gs: &mut State, ctx: &mut Rltk) {
             _ => {}
         },
     };
+    RunState::Running
 }

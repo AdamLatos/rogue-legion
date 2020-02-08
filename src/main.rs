@@ -1,10 +1,8 @@
 rltk::add_wasm_support!();
-use legion::query::{IntoQuery, Read, Write};
+use legion::query::{IntoQuery, Read};
 use legion::schedule::Schedule;
-use legion::system::SystemBuilder;
 use legion::world::{Universe, World};
-use rltk::{Console, GameState, Rltk, RGB};
-use std::cmp::{max, min};
+use rltk::{Console, GameState, Point, Rltk, RGB};
 use std::iter;
 
 mod player;
@@ -15,12 +13,19 @@ mod components;
 use components::*;
 mod rect;
 use rect::*;
-mod visibility_system;
-use visibility_system::*;
+mod systems;
+use systems::*;
+
+#[derive(PartialEq, Copy, Clone)]
+pub enum RunState {
+    Paused,
+    Running,
+}
 
 pub struct State {
     pub world: World,
     pub scheduler: Schedule,
+    pub runstate: RunState,
 }
 
 impl GameState for State {
@@ -28,10 +33,13 @@ impl GameState for State {
         ctx.cls();
 
         // handle key inputs
-        player_input(self, ctx);
-
-        // run systems
-        self.scheduler.execute(&mut self.world);
+        if self.runstate == RunState::Running {
+            // run systems
+            self.scheduler.execute(&mut self.world);
+            self.runstate = RunState::Paused;
+        } else {
+            self.runstate = player_input(self, ctx);
+        }
 
         // render stuff
 
@@ -61,6 +69,9 @@ fn main() {
         (),
         iter::once((
             Player {},
+            Name {
+                name: "player".to_string(),
+            },
             Position {
                 x: player_x,
                 y: player_y,
@@ -77,16 +88,34 @@ fn main() {
             },
         )),
     );
+    let mut rng = rltk::RandomNumberGenerator::new();
     world.insert(
         (),
-        map.rooms.iter().skip(1).map(|room| {
+        map.rooms.iter().skip(1).enumerate().map(|(i, room)| {
+            let roll = rng.roll_dice(1, 2);
+            let glyph: u8;
+            let name: String;
+            match roll {
+                1 => {
+                    glyph = rltk::to_cp437('g');
+                    name = "goblin".to_string();
+                }
+                _ => {
+                    glyph = rltk::to_cp437('o');
+                    name = "orc".to_string();
+                }
+            }
             (
+                Monster {},
+                Name {
+                    name: format!("{} #{}", &name, i),
+                },
                 Position {
                     x: room.center().0,
                     y: room.center().1,
                 },
                 Renderable {
-                    glyph: rltk::to_cp437('g'),
+                    glyph: glyph,
                     fg: RGB::named(rltk::RED),
                     bg: RGB::named(rltk::BLACK),
                 },
@@ -99,30 +128,22 @@ fn main() {
     );
 
     world.resources.insert(map);
-    let move_objects = SystemBuilder::new("MoveObjects")
-        .with_query(<(Write<Position>, Read<Velocity>)>::query())
-        .read_resource::<Map>()
-        .build(move |_, world, map, query| {
-            for (mut pos, vel) in query.iter(&mut *world) {
-                let destination_idx = map.xy_idx(pos.x + vel.x, pos.y + vel.y);
-                if map.tiles[destination_idx] != TileType::Wall {
-                    pos.x = min(map.width - 1, max(0, pos.x + vel.x));
-                    pos.y = min(map.height - 1, max(0, pos.y + vel.y));
-                }
-            }
-        });
-
+    world.resources.insert(Point::new(player_x, player_y));
+    let move_system = build_move_system();
     let vis_system = build_visibility_system();
+    let ai_system = build_ai_system();
 
     let scheduler = Schedule::builder()
-        .add_system(move_objects)
         .add_system(vis_system)
+        .add_system(move_system)
+        .add_system(ai_system)
         .flush()
         .build();
 
     let gs = State {
         world: world,
         scheduler: scheduler,
+        runstate: RunState::Running,
     };
 
     rltk::main_loop(context, gs);
